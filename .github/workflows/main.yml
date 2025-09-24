@@ -1,4 +1,4 @@
-name: Airaaa CRD VM (Input Fleksibel)
+name: Airaaa CRD VM (Input Fleksibel - Diperbaiki)
 
 on:
   workflow_dispatch:
@@ -33,7 +33,9 @@ jobs:
           Start-Process msiexec.exe -ArgumentList '/i', ('{0}\chromeremotedesktophost.msi' -f $env:TEMP), '/quiet' -Wait
 
           # Ekstrak Auth Token dan PIN dari input pengguna
-          $command = "${{ github.event.inputs.crd_command }}"
+          # MENGGUNAKAN TANDA KUTIP TUNGGAL (') UNTUK MENCEGAH PARSER ERROR
+          $command = '${{ github.event.inputs.crd_command }}'
+          
           $AuthToken = $null
           
           # Tetapkan PIN default. Ini akan ditimpa jika PIN kustom ditemukan.
