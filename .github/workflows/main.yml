@@ -1,12 +1,16 @@
-name: Airaaa CRD VM
+name: Airaaa CRD VM (Input Perintah Langsung)
 
 on:
   workflow_dispatch:
+    inputs:
+      crd_command:
+        description: 'Tempel seluruh baris perintah dari https://remotedesktop.google.com/headless'
+        required: true
 
 jobs:
   chrome-remote-desktop:
     runs-on: windows-latest
-    timeout-minutes: 21600 # 6 jam
+    timeout-minutes: 359 # Maksimum ~6 jam
 
     steps:
       - name: Download Perangkat Lunak (VirtualBox dan Debian ISO)
@@ -24,30 +28,44 @@ jobs:
 
       - name: Setup Chrome Remote Desktop
         run: |
-          # Download dan instal host Chrome Remote Desktop
-          $installerUrl = "https://dl.google.com/chrome-remote-desktop/chromeremotedesktophost.msi"
-          $installerPath = "$env:TEMP\chromeremotedesktophost.msi"
-          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet" -Wait
+          # Download dan instal host CRD
+          Invoke-WebRequest -Uri https://dl.google.com/chrome-remote-desktop/chromeremotedesktophost.msi -OutFile $env:TEMP\chromeremotedesktophost.msi
+          Start-Process msiexec.exe -ArgumentList '/i', ('{0}\chromeremotedesktophost.msi' -f $env:TEMP), '/quiet' -Wait
 
-          # Otorisasi dan mulai layanan CRD
-          $AuthToken = "${{ secrets.CRD_AUTH_TOKEN }}"
-          $Pin = "${{ secrets.CRD_PIN }}"
-          
-          try {
-              & "$env:ProgramFiles(x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="$AuthToken" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:COMPUTERNAME -pin="$Pin"
-              Write-Host "Layanan Chrome Remote Desktop berhasil dimulai."
-          } catch {
-              Write-Error "Gagal memulai host Chrome Remote Desktop. Pastikan CRD_AUTH_TOKEN valid."
+          # Ekstrak Auth Token dan PIN dari input pengguna
+          $command = "${{ github.event.inputs.crd_command }}"
+          $AuthToken = $null
+          $Pin = $null
+
+          # Ekstrak Auth Token menggunakan regular expression
+          if ($command -match '--code="([^"]+)"') {
+              $AuthToken = $matches[1]
+          }
+
+          # Ekstrak PIN menggunakan regular expression
+          if ($command -match '-pin=([0-9]+)') {
+              $Pin = $matches[1]
+          }
+
+          # Periksa apakah token dan pin berhasil diekstrak
+          if (-not $AuthToken -or -not $Pin) {
+              Write-Error "Gagal mengekstrak Auth Token atau PIN dari perintah yang diberikan. Pastikan formatnya benar."
               exit 1
           }
+          
+          Write-Host "Auth Token dan PIN berhasil diekstrak. Memulai layanan CRD..."
+
+          # Mulai host CRD menggunakan token dan pin yang diekstrak
+          & "$env:ProgramFiles(x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="$AuthToken" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:COMPUTERNAME -pin="$Pin"
+          
+          Write-Host "Layanan Chrome Remote Desktop berhasil dimulai."
 
       - name: Jaga Koneksi Tetap Aktif
         run: |
           Write-Host "===================================================================="
           Write-Host "Runner siap untuk diakses melalui Chrome Remote Desktop."
           Write-Host "Buka https://remotedesktop.google.com/access untuk terhubung."
-          Write-Host "Runner akan tetap aktif selama 6 jam atau hingga dibatalkan."
+          Write-Host "Runner akan tetap aktif selama ~6 jam atau hingga dibatalkan."
           Write-Host "File VirtualBox dan Debian ISO ada di direktori C:\"
           Write-Host "===================================================================="
           
