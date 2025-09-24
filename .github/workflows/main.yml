@@ -1,0 +1,58 @@
+name: Airaaa CRD VM
+
+on:
+  workflow_dispatch:
+
+jobs:
+  chrome-remote-desktop:
+    runs-on: windows-latest
+    timeout-minutes: 21600 # 6 jam
+
+    steps:
+      - name: Download Perangkat Lunak (VirtualBox dan Debian ISO)
+        run: |
+          Write-Host "Mulai mengunduh VirtualBox dan Debian 13 ISO..."
+          Invoke-WebRequest -Uri "https://download.virtualbox.org/virtualbox/7.0.18/VirtualBox-7.0.18-162988-Win.exe" -OutFile "C:\VirtualBox-Installer.exe"
+          Invoke-WebRequest -Uri "https://cdimage.debian.org/cdimage/weekly-builds/amd64/iso-cd/debian-testing-amd64-netinst.iso" -OutFile "C:\debian-13-netinst.iso"
+          Write-Host "Download selesai. File disimpan di C:\"
+
+      - name: Install VirtualBox
+        run: |
+          Write-Host "Memulai instalasi VirtualBox secara senyap..."
+          Start-Process -FilePath "C:\VirtualBox-Installer.exe" -ArgumentList "--silent" -Wait
+          Write-Host "Instalasi VirtualBox selesai."
+
+      - name: Setup Chrome Remote Desktop
+        run: |
+          # Download dan instal host Chrome Remote Desktop
+          $installerUrl = "https://dl.google.com/chrome-remote-desktop/chromeremotedesktophost.msi"
+          $installerPath = "$env:TEMP\chromeremotedesktophost.msi"
+          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet" -Wait
+
+          # Otorisasi dan mulai layanan CRD
+          $AuthToken = "${{ secrets.CRD_AUTH_TOKEN }}"
+          $Pin = "${{ secrets.CRD_PIN }}"
+          
+          try {
+              & "$env:ProgramFiles(x86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="$AuthToken" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:COMPUTERNAME -pin="$Pin"
+              Write-Host "Layanan Chrome Remote Desktop berhasil dimulai."
+          } catch {
+              Write-Error "Gagal memulai host Chrome Remote Desktop. Pastikan CRD_AUTH_TOKEN valid."
+              exit 1
+          }
+
+      - name: Jaga Koneksi Tetap Aktif
+        run: |
+          Write-Host "===================================================================="
+          Write-Host "Runner siap untuk diakses melalui Chrome Remote Desktop."
+          Write-Host "Buka https://remotedesktop.google.com/access untuk terhubung."
+          Write-Host "Runner akan tetap aktif selama 6 jam atau hingga dibatalkan."
+          Write-Host "File VirtualBox dan Debian ISO ada di direktori C:\"
+          Write-Host "===================================================================="
+          
+          # Loop untuk menjaga agar runner tetap berjalan
+          while ($true) {
+              Start-Sleep -Seconds 600
+              Write-Host "[$(Get-Date)] Sesi aktif. Batalkan alur kerja untuk menghentikan."
+          }
