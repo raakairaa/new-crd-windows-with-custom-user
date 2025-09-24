@@ -28,12 +28,16 @@ jobs:
 
       - name: Setup Chrome Remote Desktop
         run: |
+          # URL unduhan yang benar untuk CRD Host
+          $crdInstallerUrl = "https://dl.google.com/dl/chrome-remote-desktop/chromeremotedesktophost.msi"
+          
           # Download dan instal host CRD
-          Invoke-WebRequest -Uri https://dl.google.com/chrome-remote-desktop/chromeremotedesktophost.msi -OutFile $env:TEMP\chromeremotedesktophost.msi
+          Write-Host "Mengunduh Chrome Remote Desktop Host dari $crdInstallerUrl"
+          Invoke-WebRequest -Uri $crdInstallerUrl -OutFile $env:TEMP\chromeremotedesktophost.msi
           Start-Process msiexec.exe -ArgumentList '/i', ('{0}\chromeremotedesktophost.msi' -f $env:TEMP), '/quiet' -Wait
 
           # Ekstrak Auth Token dan PIN dari input pengguna
-          # MENGGUNAKAN TANDA KUTIP TUNGGAL (') UNTUK MENCEGAH PARSER ERROR
+          # Menggunakan tanda kutip tunggal (') untuk mencegah Parser Error
           $command = '${{ github.event.inputs.crd_command }}'
           
           $AuthToken = $null
@@ -55,7 +59,7 @@ jobs:
               Write-Host "Tidak ada PIN kustom yang ditemukan. Menggunakan PIN default."
           }
 
-          # Periksa apakah Auth Token berhasil diekstrak (PIN sudah pasti ada nilainya)
+          # Periksa apakah Auth Token berhasil diekstrak
           if (-not $AuthToken) {
               Write-Error "Gagal mengekstrak Auth Token dari perintah. Pastikan Anda menempelkan perintah yang valid."
               exit 1
@@ -73,7 +77,7 @@ jobs:
           Write-Host "===================================================================="
           Write-Host "Runner siap untuk diakses melalui Chrome Remote Desktop."
           Write-Host "Buka https://remotedesktop.google.com/access untuk terhubung."
-          Write-Host "PIN untuk terhubung adalah '$($Pin)' (jika Anda tidak memasukkan PIN kustom)."
+          Write-Host "PIN untuk terhubung adalah '$($Pin)'."
           Write-Host "Runner akan tetap aktif selama ~6 jam atau hingga dibatalkan."
           Write-Host "File VirtualBox dan Debian ISO ada di direktori C:\"
           Write-Host "===================================================================="
